@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from agents import Agent, Runner, ModelSettings, function_tool, RunContextWrapper
+from openai.types.shared import Reasoning
 
 from experiment_state import ExperimentState, ExperimentSpec, Hypothesis
 from warning_engine import WarningEngine
@@ -520,7 +521,7 @@ class ResearchLoop:
         self.agent = Agent(
             name="research",
             model=model,
-            model_settings=ModelSettings(reasoning={"effort": "xhigh"}),
+            model_settings=ModelSettings(reasoning=Reasoning(effort="xhigh")),
             instructions=system_prompt,
             tools=[read_experiment_state, read_file, read_log,
                    list_files, kill_run, apply_code_change],
