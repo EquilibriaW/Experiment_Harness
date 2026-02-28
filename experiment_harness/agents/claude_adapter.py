@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 
@@ -27,8 +28,11 @@ class ClaudeAdapter(AgentAdapter):
     def name(self) -> str:
         return "claude"
 
-    def run(self, prompt: str, working_dir: str) -> AgentResult:
+    def run(self, prompt: str, working_dir: str, env: dict | None = None) -> AgentResult:
         start = time.monotonic()
+        run_env = None
+        if env:
+            run_env = {**os.environ, **env}
         cmd = [
             "claude",
             "-p", prompt,
@@ -42,6 +46,7 @@ class ClaudeAdapter(AgentAdapter):
                 capture_output=True,
                 text=True,
                 cwd=working_dir,
+                env=run_env,
             )
             duration = time.monotonic() - start
 

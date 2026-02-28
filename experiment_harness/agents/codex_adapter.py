@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 
@@ -26,8 +27,11 @@ class CodexAdapter(AgentAdapter):
     def name(self) -> str:
         return "codex"
 
-    def run(self, prompt: str, working_dir: str) -> AgentResult:
+    def run(self, prompt: str, working_dir: str, env: dict | None = None) -> AgentResult:
         start = time.monotonic()
+        run_env = None
+        if env:
+            run_env = {**os.environ, **env}
         try:
             proc = subprocess.run(
                 ["codex", "exec", "--yolo", "--json", "-"],
@@ -35,6 +39,7 @@ class CodexAdapter(AgentAdapter):
                 capture_output=True,
                 text=True,
                 cwd=working_dir,
+                env=run_env,
             )
             duration = time.monotonic() - start
 

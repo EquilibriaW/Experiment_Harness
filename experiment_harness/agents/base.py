@@ -33,7 +33,7 @@ class AgentAdapter(ABC):
     """ABC for wrapping a coding agent CLI."""
 
     @abstractmethod
-    def run(self, prompt: str, working_dir: str) -> AgentResult:
+    def run(self, prompt: str, working_dir: str, env: dict | None = None) -> AgentResult:
         """Send a prompt to the agent and return the result.
 
         Args:
