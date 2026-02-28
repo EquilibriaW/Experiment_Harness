@@ -184,8 +184,9 @@ def apply_code_change(ctx: RunContextWrapper[ResearchContext], instruction: str)
     cwd = str(ctx.context.experiment_dir)
     agent_name = ctx.context.agent_name
 
-    # 1. Git checkpoint
+    # 1. Git checkpoint — capture SHA so rollback targets the exact commit
     has_git = False
+    checkpoint_sha = None
     try:
         subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
                        capture_output=True, cwd=cwd, timeout=5)
@@ -193,6 +194,12 @@ def apply_code_change(ctx: RunContextWrapper[ResearchContext], instruction: str)
         subprocess.run(["git", "commit", "-m", f"checkpoint before: {instruction[:60]}",
                         "--allow-empty"],
                        capture_output=True, cwd=cwd, timeout=10)
+        sha_result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=cwd, timeout=5,
+        )
+        if sha_result.returncode == 0:
+            checkpoint_sha = sha_result.stdout.strip()
         has_git = True
     except Exception:
         pass
@@ -296,11 +303,16 @@ def apply_code_change(ctx: RunContextWrapper[ResearchContext], instruction: str)
         except Exception:
             test_output = "(no validation available)"
 
-    # 6. Revert if tests failed
+    # 6. Revert if tests failed — reset to checkpoint, not HEAD~1
     if not test_passed and has_git:
         try:
-            subprocess.run(["git", "reset", "--hard", "HEAD~1"],
-                           capture_output=True, cwd=cwd, timeout=10)
+            if checkpoint_sha:
+                subprocess.run(["git", "reset", "--hard", checkpoint_sha],
+                               capture_output=True, cwd=cwd, timeout=10)
+            else:
+                # Checkpoint commit failed; just discard working-tree edits
+                subprocess.run(["git", "checkout", "."],
+                               capture_output=True, cwd=cwd, timeout=10)
         except Exception:
             pass
         return (

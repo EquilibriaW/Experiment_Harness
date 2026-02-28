@@ -164,6 +164,8 @@ class EventLoop:
         self._consecutive_failures = 0
         self._pending_triggers: list[str] = []
         self._logs_dir = self.experiment_dir / "logs"
+        self._log_lock = threading.Lock()
+        self._log_seq = 0
 
     # ── Main loop ───────────────────────────────────────────────
 
@@ -390,7 +392,8 @@ class EventLoop:
         Multiple triggers may accumulate — they're batched into a single
         invocation when the agent is free.
         """
-        self._pending_triggers.append(reason)
+        with self._research_lock:
+            self._pending_triggers.append(reason)
         self._maybe_invoke_research_async()
 
     def _maybe_invoke_research_async(self) -> None:
@@ -401,10 +404,9 @@ class EventLoop:
             if not self._pending_triggers:
                 return
             self._research_running = True
-
-        # Consume all pending triggers into one invocation
-        triggers = list(self._pending_triggers)
-        self._pending_triggers.clear()
+            # Consume all pending triggers into one invocation (inside lock)
+            triggers = list(self._pending_triggers)
+            self._pending_triggers.clear()
         trigger_reason = "; ".join(triggers)
 
         def _run():
@@ -598,8 +600,10 @@ class EventLoop:
         print(f"{'='*60}")
 
     def _log_event(self, event_type: str, data: dict) -> None:
-        self._logs_dir.mkdir(parents=True, exist_ok=True)
-        seq = len(sorted(self._logs_dir.glob("*.json"))) + 1
+        with self._log_lock:
+            self._logs_dir.mkdir(parents=True, exist_ok=True)
+            self._log_seq += 1
+            seq = self._log_seq
         entry = {
             "seq": seq, "event": event_type,
             "timestamp": datetime.now(timezone.utc).isoformat(),
